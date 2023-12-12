@@ -34,36 +34,59 @@ import sys
 sys.path.append('.')
 
 from PySide6.QtWidgets import (
-    QMainWindow, QStackedLayout, QWidget, QVBoxLayout, QFileDialog, QCheckBox
+    QMainWindow, QHBoxLayout, QVBoxLayout, QWidget, QFileDialog, QCheckBox, QLabel, QLineEdit, QPushButton
 )
 from PySide6.QtGui import (
     QAction, QIcon
 )
 from PySide6.QtCore import (
-    QSettings, Qt
+    Qt
 )
 
-class MyDialog(QFileDialog):
-    def __init__(self, parent=None):
-        super (MyDialog, self).__init__()
-        self.init_ui()
+class _DicomWidget(QWidget):
+    """_Widget asking for the DICOM files that needs to have tags
+    """
 
+    def __init__(self,parent=None):
+        super(_DicomWidget, self).__init__(parent)
+        self.parent = parent
+        # Choice of Directory
+        get_dir = QHBoxLayout()
+        label = QLabel("Dicom Files : ")
+        get_dir.addWidget(label)
+        
+        self.cal_dir_edit=QLabel("No files selected") 
+        get_dir.addWidget(self.cal_dir_edit)
+        
+        cam_calib = QPushButton(text="Browse...",parent=self)
+        cam_calib.clicked.connect(self.open_directory)
+
+        get_dir.addWidget(cam_calib)
+        get_dir.setSpacing(20)
+        self.setLayout(get_dir)
+        
+        get_dir.setContentsMargins(20,0,100,0)
+
+    def open_directory(self):
+        files, _ = QFileDialog.getOpenFileNames(self, "Select DICOM files", ".", "All Files (*.*);; DICOM (*.dcm)")
+        print(len(files))
+        self.cal_dir_edit.setText(f"{len(files)} files selected")
+    
+    def get_value(self):
+        return str(self.cal_dir_edit.text())
+
+class CentralWidget(QWidget):
+    def __init__(self, parent=None):
+        super(CentralWidget, self).__init__()
+        self.init_ui()
+    
     def init_ui(self):
         self.v_layout = QVBoxLayout()
-        cb = QCheckBox('Select directory')
-        cb.stateChanged.connect(self.toggle_files_folders)
-        self.v_layout.addWidget(cb)
-
+        self.dicom_widget = _DicomWidget()
+        self.v_layout.addWidget(self.dicom_widget)
         self.setLayout(self.v_layout)
 
-    def toggle_files_folders(self, state):
-        if state == Qt.CheckState.Checked:
-            self.setFileMode(self.FileMode.Directory)
-            self.setOption(self.Option.ShowDirsOnly, True)
-        else:
-            self.setFileMode(self.FileMode.AnyFile)
-            self.setOption(self.Option.ShowDirsOnly, False)
-            self.setNameFilter('All files (*)')
+
 
 class MainWindow(QMainWindow):
 
@@ -73,7 +96,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Sphaeroptica")
         print("Hello")
         
-        widget = MyDialog()
+        widget = CentralWidget()
         self.setCentralWidget(widget)
 
 

@@ -58,8 +58,6 @@ def update_tags(files : list, tags : QFileInfo):
         
         ds = dicom.read_file(dicom_file.absoluteFilePath())
 
-        print(ds)
-        exit(0)
         row_tags = row.drop(FILE_NAME)
 
         for col, val in row_tags.items():

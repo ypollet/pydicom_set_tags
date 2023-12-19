@@ -1,15 +1,46 @@
-import pydicom as dicom
+# Canathist Automizer Tags 2023
 
-from pydicom.datadict import dictionary_VR
+# Copyright (C) 2023 Yann Pollet, Royal Belgian Institute of Natural Sciences
 
-from pydicom.tag import Tag
+#
+
+# This program is free software: you can redistribute it and/or
+
+# modify it under the terms of the GNU General Public License as
+
+# published by the Free Software Foundation, either version 3 of the
+
+# License, or (at your option) any later version.
+
+# 
+
+# This program is distributed in the hope that it will be useful, but
+
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+
+# General Public License for more details.
+
+#
+
+# You should have received a copy of the GNU General Public License
+
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+
 import pandas as pd
 
 from PySide6.QtCore import (
     QFileInfo
 )
 
+import warnings
+
+import pydicom as dicom
+from pydicom.datadict import dictionary_VR
+from pydicom.tag import Tag
 from pydicom.valuerep import VR, FLOAT_VR, INT_VR, STR_VR, BYTES_VR
+
 
 FILE_NAME = "Label"
 
@@ -33,6 +64,8 @@ def check_cast(vr, val):
     
 
 def update_tags(files : list, tags : QFileInfo):
+    warnings.filterwarnings("error")
+    
     files = {file.baseName():file for file in files}
     tags_df = pd.read_csv(tags.absoluteFilePath(), delimiter=';')
 
@@ -71,10 +104,13 @@ def update_tags(files : list, tags : QFileInfo):
                 ds.add(dicom.DataElement(tag, VR, check_cast(VR,val)))
             except Exception as error:
                 print(f"{image_label} : error for {tag} {col} - {val} : {error}")
+                #continue even if a tag wasn't added
+
         print(image_label)
         print(row)
         print(ds)
         print("-----------------------------------------------------------------")
         ds.save_as(dicom_file.absoluteFilePath())
-        
+    
+    warnings.resetwarnings()
     return 0

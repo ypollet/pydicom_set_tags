@@ -1,1 +1,3 @@
 test_pydicom.py
+test_orthanc.py
+test_drag_and_drop.py

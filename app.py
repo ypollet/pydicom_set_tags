@@ -1,4 +1,4 @@
-# Sphaeroptica - 3D Viewer on calibrated
+# Canathist Automizer Tags 2023
 
 # Copyright (C) 2023 Yann Pollet, Royal Belgian Institute of Natural Sciences
 

@@ -28,6 +28,10 @@
 
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+import PIL.Image
+import base64
+from io import BytesIO
+
 import pandas as pd
 
 from PySide6.QtCore import (
@@ -41,9 +45,19 @@ from pydicom.datadict import dictionary_VR
 from pydicom.tag import Tag
 from pydicom.valuerep import VR, FLOAT_VR, INT_VR, STR_VR, BYTES_VR
 
+import PIL
+
 
 FILE_NAME = "Label"
 STATUS_OK = 200
+
+def to_data_uri(path):
+    img = PIL.Image.open(path)
+    im_file = BytesIO()
+    img.save(im_file, format=img.format)
+    encoded_img = base64.b64encode(im_file.getvalue()) #base64.encodebytes(im_file.getvalue()).decode('ascii')
+    base64.b64encode(im_file.getvalue())
+    return f"data:image/{img.format};base64,{encoded_img.decode('utf-8')}"
 
 def check_cast(vr, val):
     if vr == VR.AT:

@@ -97,9 +97,11 @@ class _DicomsModel(QAbstractListModel):
     def dropMimeData(self, data: QMimeData, action: Qt.DropAction, row: int, column: int, parent: QModelIndex | QPersistentModelIndex) -> bool:
         if not data.hasUrls() :
             return False
-        files = [QFileInfo(u.toLocalFile()) for u in data.urls()]    
+        files = [QFileInfo(u.toLocalFile()) for u in data.urls()]
         self.add_files(files)
-            
+        
+        for f in files:
+            tags.to_data_uri(f)
         # Trigger refresh.
         self.listChanged.emit()
         

@@ -119,19 +119,19 @@ class OrthancErrorCode(Enum):
     ErrorCode_UnsupportedMediaType = 3000,    # Unsupported media type
     ErrorCode_START_PLUGINS = 1000000
 
-class ImageType(Enum):
+class FileType(Enum):
     IMAGE = "image/",
     FILE = "application/file",
     PDF = "application/pdf"
 
 extension = {
-    "jpg" : ImageType.IMAGE,
-    "jpeg" : ImageType.IMAGE,
-    "png" : ImageType.IMAGE,
-    "tiff" : ImageType.IMAGE,
-    "tif" : ImageType.IMAGE,
-    "pdf" : ImageType.PDF
+    "jpg" : FileType.IMAGE,
+    "jpeg" : FileType.IMAGE,
+    "png" : FileType.IMAGE,
+    "tiff" : FileType.IMAGE,
+    "tif" : FileType.IMAGE,
+    "pdf" : FileType.PDF
 }
 
 def get_type(ext : str):
-    return extension[ext] if ext in extension else ImageType.FILE
+    return extension[ext] if ext in extension else FileType.FILE

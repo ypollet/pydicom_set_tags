@@ -1,0 +1,137 @@
+{
+    "Serie_1":{
+        "parent":"",
+        "list_requests": [
+            "_x_00000_y_00000_.jpg",
+            "_x_00000_y_00160_.jpg",
+            "_x_00000_y_00320_.jpg",
+            "_x_00000_y_00480_.jpg",
+            "_x_00000_y_00640_.jpg",
+            "_x_00000_y_00800_.jpg",
+            "_x_00000_y_00960_.jpg",
+            "_x_00000_y_01120_.jpg",
+            "_x_00000_y_01280_.jpg",
+            "_x_00000_y_01440_.jpg",
+            "_x_00000_y_01600_.jpg",
+            "_x_00000_y_01760_.jpg",
+            "_x_00000_y_01920_.jpg",
+            "_x_00000_y_02080_.jpg",
+            "_x_00000_y_02240_.jpg",
+            "_x_00000_y_02400_.jpg",
+            "_x_00000_y_02560_.jpg",
+            "_x_00000_y_02720_.jpg",
+            "_x_00000_y_02880_.jpg",
+            "_x_00000_y_03040_.jpg"
+        ],
+        "files": {
+            "_x_00000_y_00000_.jpg": {
+            "tags":{
+                    "PatientID": "C123456789",
+                    "PatientName": "SOME^PATIENT",
+                    "PatientBirthDate": "19700101",
+                    "PatientSex": "M",
+                    "StudyID": "NONE",
+                    "SeriesNumber": "1",
+                    "ReferringPhysicianName": "SOME^PHYSICIAN",
+                    "AccessionNumber": "123456789",
+                    "AcquisitionNumber": "1"
+                }
+            },
+            "_x_00000_y_00160_.jpg": {
+                "tags":{
+                "AcquisitionNumber": "2"
+                }
+            },
+            "_x_00000_y_00320_.jpg": {
+                "tags":{
+                "AcquisitionNumber": "3"
+                }
+            },
+            "_x_00000_y_00480_.jpg": {
+                "tags":{
+                "AccessionNumber": "4"
+                }
+            },
+            "_x_00000_y_00640_.jpg": {
+                "tags":{
+                "AcquisitionNumber": "5"
+                }
+            },
+            "_x_00000_y_00800_.jpg": {
+                "tags":{
+                "AcquisitionNumber": "6"
+                }
+            },
+            "_x_00000_y_00960_.jpg": {
+                "tags":{
+                "AcquisitionNumber": "7"
+                }
+            },
+            "_x_00000_y_01120_.jpg": {
+                "tags":{
+                "AcquisitionNumber": "8"
+                }
+            },
+            "_x_00000_y_01280_.jpg": {
+                "tags":{
+                "AcquisitionNumber": "9"
+                }
+            },
+            "_x_00000_y_01440_.jpg": {
+                "tags":{
+                "AcquisitionNumber": "10"
+                }
+            },
+            "_x_00000_y_01600_.jpg": {
+                "tags":{
+                "AcquisitionNumber": "11"
+                }
+            },
+            "_x_00000_y_01760_.jpg": {
+                "tags":{
+                "AcquisitionNumber": "12"
+                }
+            },
+            "_x_00000_y_01920_.jpg": {
+                "tags":{
+                "AcquisitionNumber": "13"
+                }
+            },
+            "_x_00000_y_02080_.jpg": {
+                "tags":{
+                "AcquisitionNumber": "14"
+                }
+            },
+            "_x_00000_y_02240_.jpg": {
+                "tags":{
+                "AcquisitionNumber": "15"
+                }
+            },
+            "_x_00000_y_02400_.jpg": {
+                "tags":{
+                "AcquisitionNumber": "16"
+                }
+            },
+            "_x_00000_y_02560_.jpg": {
+                "tags":{
+                "AcquisitionNumber": "17"
+                }
+            },
+            "_x_00000_y_02720_.jpg": {
+                "tags":{
+                "AcquisitionNumber": "18"
+                }
+            },
+            "_x_00000_y_02880_.jpg": {
+                "tags":{
+                "AcquisitionNumber": "19"
+                }
+            },
+            "_x_00000_y_03040_.jpg": {
+                "tags":{
+                "AcquisitionNumber": "20"
+                }
+            }
+        }
+    }
+}

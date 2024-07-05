@@ -51,16 +51,19 @@ from PySide6.QtGui import (
 )
 
 from scripts import tags
+import glob
+from collections import defaultdict
 
 class _DicomsModel(QAbstractListModel):
     listChanged = Signal()
-    def __init__(self, *args, files=None, **kwargs):
+    def __init__(self, *args, series : list[QFileInfo]=[], **kwargs):
         super(_DicomsModel, self).__init__(*args, **kwargs)
-        self.files = files or []
-        self.files_check = set()
+        self.series = series
+        self.series_check = set()
+        self.series_files = defaultdict(lambda: set())
         self.dicom_tags = dict()
         self.potential_bad_tags = []
-        self.files_not_added = set()
+        self.series_not_added = set()
         
         self.listChanged.connect(self.check_list)
         
@@ -68,7 +71,7 @@ class _DicomsModel(QAbstractListModel):
         self.folder_icon = QIcon("images/folder.png")
 
     def data(self, index, role):
-        file = self.files[index.row()]
+        file = self.series[index.row()]
         if role == Qt.ItemDataRole.DisplayRole:
             # See below for the data structure.
            # Return the todo text only.
@@ -82,14 +85,19 @@ class _DicomsModel(QAbstractListModel):
         
         if role == Qt.ItemDataRole.BackgroundRole:
             if file.fileName() in self.dicom_tags:
-                return QBrush(Qt.GlobalColor.darkGreen)
+                if self.series_files[file.fileName()] == {filename for filename, tags  in self.dicom_tags[file.fileName()]["files"]}:
+                    return QBrush(Qt.GlobalColor.darkGreen)
+                print("Error sets are not equals")
+                print(self.series_files[file.fileName()] - set(self.dicom_tags[file.fileName()]))
+                print(set(self.dicom_tags[file.fileName()]) - self.series_files[file.fileName()])
+                return QBrush(Qt.GlobalColor.darkYellow)
     
     def check_list(self):
-        self.files_not_added = [file for file in self.dicom_tags.keys() if file not in self.files_check]
+        self.series_not_added = [serie for serie in self.dicom_tags.keys() if serie not in self.series_check]
         self.layoutChanged.emit()
 
     def rowCount(self, index):
-        return len(self.files)
+        return len(self.series)
     
     def canDropMimeData(self, data: QMimeData, action: Qt.DropAction, row: int, column: int, parent: QModelIndex | QPersistentModelIndex) -> bool:     
         return True
@@ -97,11 +105,9 @@ class _DicomsModel(QAbstractListModel):
     def dropMimeData(self, data: QMimeData, action: Qt.DropAction, row: int, column: int, parent: QModelIndex | QPersistentModelIndex) -> bool:
         if not data.hasUrls() :
             return False
-        files = [QFileInfo(u.toLocalFile()) for u in data.urls()]
+        files = [QFileInfo(u.toLocalFile()) for u in data.urls()]      
         self.add_files(files)
         
-        for f in files:
-            tags.to_data_uri(f)
         # Trigger refresh.
         self.listChanged.emit()
         
@@ -116,19 +122,23 @@ class _DicomsModel(QAbstractListModel):
     def remove_selected_rows(self, selectedIndexes : list):
         selectedIndexes = sorted(selectedIndexes, reverse=True)
         for index in selectedIndexes:
-            self.files.pop(index.row())
+            to_remove = self.series.pop(index.row())
+            self.series_files.pop(to_remove.fileName())
         
         self.listChanged.emit()
     
-    def add_files(self, files : list):
+    def add_files(self, files : list[QFileInfo]):
+        # only accept directories
+        directories : list[QFileInfo] = [x for x in files]
         already_in = []
-        for f in files:
-            if f.fileName() in self.files_check:
+        for f in directories:
+            if f.fileName() in self.series_check:
                 # send error message ?
                 already_in.append(f)
             else:
-                self.files_check.add(f.fileName())
-                self.files.append(f)
+                self.series_check.add(f.fileName())
+                self.series_files[f.fileName()] = {QFileInfo(sub).fileName() for sub in glob.glob(f"{f.absoluteFilePath()}/*")}
+                self.series.append(f)
         
     
 class _DragAndDropFileWidget(QListView):
@@ -201,7 +211,7 @@ class _DicomWidget(QWidget):
         self.setLayout(full_layout)
 
     def open_files(self):
-        files, _ = QFileDialog.getOpenFileNames(self, "Select DICOM files", ".", "All Files (*);; Images (*.tif *.jpeg *.jpg *.png);; PDF (*.pdf)")
+        files, _ = QFileDialog.getOpenFileNames(self, "Select files to Dicomize", ".", "All Files (*);; Images (*.tif *.jpeg *.jpg *.png);; PDF (*.pdf)")
 
         files = [QFileInfo(x) for x in files]
         self.files_model.add_files(files)
@@ -229,7 +239,7 @@ class _DicomWidget(QWidget):
         self.files_model.remove_selected_rows(indexes)
 
 class _TagsWidget(QWidget):
-    """_Widget asking for the csv file containing tags
+    """_Widget asking for the json file containing tags
     """
 
     def __init__(self, model : _DicomsModel, parent=None):
@@ -256,27 +266,24 @@ class _TagsWidget(QWidget):
         get_dir.setContentsMargins(20,0,100,0)
 
     def open_files(self):
-        file, _ = QFileDialog.getOpenFileName(self, "Select csv file", ".", "CSV files (*.csv *.txt)")
+        file, _ = QFileDialog.getOpenFileName(self, "Select json file", ".", "JSON files (*.json)")
         file = str.strip(file)
-        if file is None or (not file.endswith('.txt') and not file.endswith('.csv')):
+        if file is None or not file.endswith('.json'):
             return
         
-        self.csv = QFileInfo(file)
-        self.info_files_added.setText(self.csv.fileName())
+        self.json = QFileInfo(file)
+        self.info_files_added.setText(self.json.fileName())
         
-        self.model.dicom_tags, self.model.potential_bad_tags = tags.check_tags(self.csv)     
+        self.model.dicom_tags, self.model.potential_bad_tags = tags.check_tags(self.json)     
         self.model.listChanged.emit()
-        print(self.model.dicom_tags)
-        for key, _ in self.model.dicom_tags.items():
-            print(key)
     
     def modify_tooltip(self):
-        if len(self.model.files_not_added) == 0:
+        if len(self.model.series_not_added) == 0:
             self.setToolTip("")
             return
         
         str = "Files to add : "
-        for file in self.model.files_not_added:
+        for file in self.model.series_not_added:
             str += f"\n {file}"
         self.setToolTip(str)
 
@@ -304,8 +311,8 @@ class CentralWidget(QWidget):
         self.setLayout(self.v_layout)
 
     def update_tags(self):
-        if(len(self.model.files) > 0 and len(self.model.dicom_tags) > 0):
-            tags.create_dicom(self.model)
+        if(len(self.model.series) > 0 and len(self.model.dicom_tags) > 0):
+            tags.send_requests(self.model.series, self.model.series_files, self.model.dicom_tags)
 
 
 class MainWindow(QMainWindow):
@@ -313,7 +320,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
 
-        self.setWindowTitle("Sphaeroptica")
+        self.setWindowTitle("Dicomizer")
         
         widget = CentralWidget()
         self.setCentralWidget(widget)

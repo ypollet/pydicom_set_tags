@@ -1,0 +1,2 @@
+Label;PatientName;PatientID;StudyID;SeriesNumber;AcquisitionDate
+budda_texture_png.nxs;Buddha;42053;547545.457489;0;20231110

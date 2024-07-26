@@ -123,42 +123,45 @@ def check_tags(tags : QFileInfo):
     with open(tags.absoluteFilePath(), "+r") as f:
         tags_json : dict = json.load(f)
     
-    potential_bad_tags = defaultdict(lambda : defaultdict(lambda: set()))
+    potential_bad_tags = defaultdict(lambda : defaultdict(lambda: defaultdict(lambda: set())))
     dict_tags = dict()
     
-    #Check that all the columns (except the name of the file) are DICOM Standard tags
-    for series_name, series in tags_json.items():
-        for file_name, file_info in series["files"].items():
-            for tag_name in file_info["tags"]:
-                try:
-                    _ = Tag(tag_name)
-                except:
-                    # Error Column name not a valid Name but possibly a private tag
-                    potential_bad_tags[series][file_name].add(tag_name)    
+    for study_name, study in tags_json.items():
+        study_tags = {}
+        for series_name, series in study.items():
+            series_tags = []
+            for file_name, file_info in series["files"].items():
+                dicom_tags = dict()
+                for tag_name, val in file_info["tags"].items():
+                    try:
+                        #Check that all the columns (except the name of the file) are DICOM Standard tags
+                        tag = Tag(tag_name)
+                        dicom_tags[tag_name] = check_cast(dictionary_VR(tag), val)
+                    except:
+                        # Error Column name not a valid Name but possibly a private tag
+                        potential_bad_tags[study_name][series_name][file_name].add(tag_name)    
+                        dicom_tags[tag_name] = val
+                series_tags.append((file_name, dicom_tags))
+            study_tags[series_name] = series_tags
+        dict_tags[study_name] = study_tags
     
-    for series_name, series in tags_json.items():
-        serie_tags = []
-        for file_name, file_info in series["files"].items():
-            dicom_tags = dict()
-            for tag_name, val in file_info["tags"].items():
-                if tag_name in potential_bad_tags[series_name][file_name]:
-                    dicom_tags[tag_name] = val
-                else:
-                    dicom_tags[tag_name] = check_cast(dictionary_VR(Tag(tag_name)), val)
-            
-    
-            serie_tags.append((file_name, dicom_tags))
-        dict_tags[series_name] = dict()
-        dict_tags[series_name]["files"] = serie_tags
-        dict_tags[series_name]["parent"] = series["parent"]
     
     # dicts : Series -> file -> tag
-    return dict_tags, series["parent"]
+    return dict_tags, potential_bad_tags
 
-def send_requests(series : list[QFileInfo], serie_files : dict[str, set[str]], tags : dict):
+def check_tag(tag_name : str, val):
+    try:
+        #Check that all the columns (except the name of the file) are DICOM Standard tags
+        tag = Tag(tag_name)
+        return True, check_cast(dictionary_VR(tag), val)
+    except:
+        # Error Column name not a valid Name but possibly a private tag
+        return False, val
+
+def send_requests(studies : list[QFileInfo], serie_files : dict[str, set[str]], tags : dict):
     print("send request")
     try:
-        for serie in series:
+        for serie in studies:
             if not serie.fileName() in tags:
                 print(f"{serie.fileName()} is not in the tag list")
                 continue
@@ -166,12 +169,14 @@ def send_requests(series : list[QFileInfo], serie_files : dict[str, set[str]], t
             # too keep for file
             series_list = serie_files[serie.fileName()]
             tags_list = tags[serie.fileName()]
-            series_request(serie, series_list, tags_list)
+            study_request(serie, series_list, tags_list)
     except OrthancProcessError as e:
         print(e.reason)
         print(e.json)
         
-
+def study_request(study: QFileInfo, series_files : dict, series_tags: dict):
+    #series_request(serie, series_list, tags_list)
+    pass
 
 def series_request(serie : QFileInfo, files : set[str], file_tags : dict):
     try:

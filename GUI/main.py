@@ -39,7 +39,7 @@ from PySide6.QtWidgets import (
 )
 
 from PySide6.QtCore import (
-    QMimeData, QModelIndex, QPersistentModelIndex, Qt, QFileInfo, QSize, QAbstractListModel, Signal
+    Qt, QFileInfo, QSize, QAbstractListModel, Signal, QDir
 )
 
 from PySide6.QtGui import (
@@ -53,107 +53,18 @@ from PySide6.QtGui import (
 from scripts import tags
 import glob
 from collections import defaultdict
-
-class _DicomsModel(QAbstractListModel):
-    listChanged = Signal()
-    def __init__(self, *args, series : list[QFileInfo]=[], **kwargs):
-        super(_DicomsModel, self).__init__(*args, **kwargs)
-        self.series = series
-        self.series_check = set()
-        self.series_files = defaultdict(lambda: set())
-        self.dicom_tags = dict()
-        self.potential_bad_tags = []
-        self.series_not_added = set()
-        
-        self.listChanged.connect(self.check_list)
-        
-        self.file_icon = QIcon("images/document.png")
-        self.folder_icon = QIcon("images/folder.png")
-
-    def data(self, index, role):
-        file = self.series[index.row()]
-        if role == Qt.ItemDataRole.DisplayRole:
-            # See below for the data structure.
-           # Return the todo text only.
-            return file.fileName()
-        
-        if role == Qt.ItemDataRole.DecorationRole:
-            if file.isFile():
-                return self.file_icon
-            if file.isDir():
-                return self.folder_icon
-        
-        if role == Qt.ItemDataRole.BackgroundRole:
-            if file.fileName() in self.dicom_tags:
-                if self.series_files[file.fileName()] == {filename for filename, tags  in self.dicom_tags[file.fileName()]["files"]}:
-                    return QBrush(Qt.GlobalColor.darkGreen)
-                print("Error sets are not equals")
-                print(self.series_files[file.fileName()] - set(self.dicom_tags[file.fileName()]))
-                print(set(self.dicom_tags[file.fileName()]) - self.series_files[file.fileName()])
-                return QBrush(Qt.GlobalColor.darkYellow)
+from models.treemodel import TreeModel
+       
     
-    def check_list(self):
-        self.series_not_added = [serie for serie in self.dicom_tags.keys() if serie not in self.series_check]
-        self.layoutChanged.emit()
-
-    def rowCount(self, index):
-        return len(self.series)
+class _FileWidget(QTreeView):
     
-    def canDropMimeData(self, data: QMimeData, action: Qt.DropAction, row: int, column: int, parent: QModelIndex | QPersistentModelIndex) -> bool:     
-        return True
-    
-    def dropMimeData(self, data: QMimeData, action: Qt.DropAction, row: int, column: int, parent: QModelIndex | QPersistentModelIndex) -> bool:
-        if not data.hasUrls() :
-            return False
-        files = [QFileInfo(u.toLocalFile()) for u in data.urls()]      
-        self.add_files(files)
+    def __init__(self, parent=None, model : TreeModel=None):
         
-        # Trigger refresh.
-        self.listChanged.emit()
-        
-        return True
-
-    def flags(self, index):
-        flags = super().flags(index)
-        if not index.isValid():
-            flags |= Qt.ItemFlag.ItemIsDropEnabled
-        return flags
-
-    def remove_selected_rows(self, selectedIndexes : list):
-        selectedIndexes = sorted(selectedIndexes, reverse=True)
-        for index in selectedIndexes:
-            to_remove = self.series.pop(index.row())
-            self.series_files.pop(to_remove.fileName())
-        
-        self.listChanged.emit()
-    
-    def add_files(self, files : list[QFileInfo]):
-        # only accept directories
-        directories : list[QFileInfo] = [x for x in files]
-        already_in = []
-        for f in directories:
-            if f.fileName() in self.series_check:
-                # send error message ?
-                already_in.append(f)
-            else:
-                self.series_check.add(f.fileName())
-                self.series_files[f.fileName()] = {QFileInfo(sub).fileName() for sub in glob.glob(f"{f.absoluteFilePath()}/*")}
-                self.series.append(f)
-        
-    
-class _DragAndDropFileWidget(QListView):
-    
-    def __init__(self, parent=None, model : _DicomsModel=None):
-        
-        super(_DragAndDropFileWidget, self).__init__(parent)
-        self.setDragEnabled(True)
-        self.viewport().setAcceptDrops(True)
+        super(_FileWidget, self).__init__(parent)
         self.full_layout = QHBoxLayout()
         self.setLayout(self.full_layout)
         self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.files_model = model
-
-        self.setDropIndicatorShown(True)
     
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
         print(event.globalPos())
@@ -173,7 +84,7 @@ class _DicomWidget(QWidget):
     """_Widget asking for the DICOM files that needs to have tags
     """
 
-    def __init__(self, model : _DicomsModel,parent=None):
+    def __init__(self, model : TreeModel,parent=None):
         super(_DicomWidget, self).__init__(parent)
         self.parent = parent
         # Choice of Directory
@@ -183,109 +94,37 @@ class _DicomWidget(QWidget):
         label = QLabel("Dicom Files : ")
         get_dir.addWidget(label)
                 
-        files = QPushButton(text="Add Files",parent=self)
-        files.clicked.connect(self.open_files)
         
-        directories = QPushButton(text="Add directories",parent=self)
-        directories.clicked.connect(self.open_directories)
+        directories = QPushButton(text="Add directory",parent=self)
+        directories.clicked.connect(self.open_directory)
         
         delete = QPushButton(text="Delete items",parent=self)
         delete.clicked.connect(self.delete_items)
 
-        get_dir.addWidget(files)
         get_dir.addWidget(directories)
         get_dir.addWidget(delete)
         get_dir.setSpacing(20)
         
         full_layout.addLayout(get_dir)
         
-        self.list_files = _DragAndDropFileWidget(parent=self, model=model)
+        self.list_files = _FileWidget(parent=self, model=model)
         self.list_files.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.list_files.setMinimumSize(QSize(300,300))
         self.list_files.setBackgroundRole(QPalette.ColorRole.AlternateBase)
-        self.files_model = model
-        self.list_files.setModel(self.files_model)
+        self.series_model = model
+        self.list_files.setModel(self.series_model)
         full_layout.addWidget(self.list_files)
         
         get_dir.setContentsMargins(20,0,100,0)
         self.setLayout(full_layout)
-
-    def open_files(self):
-        files, _ = QFileDialog.getOpenFileNames(self, "Select files to Dicomize", ".", "All Files (*);; Images (*.tif *.jpeg *.jpg *.png);; PDF (*.pdf)")
-
-        files = [QFileInfo(x) for x in files]
-        self.files_model.add_files(files)
-        # Trigger refresh.
-        self.files_model.listChanged.emit()
         
-    def open_directories(self):
-        dialog = QFileDialog()
-        dialog.setFileMode(QFileDialog.FileMode.Directory)
-        dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
-        l_view : QListView = dialog.findChild(QListView, "listView")
-        if l_view :
-            l_view.setSelectionMode(QAbstractItemView.SelectionMode.MultiSelection)
-        tView : QTreeView = dialog.findChild(QTreeView)
-        if tView:
-            tView.setSelectionMode(QAbstractItemView.SelectionMode.MultiSelection)
-        dialog.exec()
-        
-        directories = [QFileInfo(x) for x in dialog.selectedFiles()]
-        self.files_model.add_files(directories)
-        self.files_model.listChanged.emit()
-    
+    def open_directory(self):
+        directory = QDir(QFileDialog.getExistingDirectory(self, "Select Directory"))   
+        self.series_model.setModel(directory)
+            
     def delete_items(self):
         indexes = sorted(self.list_files.selectedIndexes(), reverse=True)
-        self.files_model.remove_selected_rows(indexes)
-
-class _TagsWidget(QWidget):
-    """_Widget asking for the json file containing tags
-    """
-
-    def __init__(self, model : _DicomsModel, parent=None):
-        super(_TagsWidget, self).__init__(parent)
-        self.parent = parent
-        self.model = model
-        # Choice of Directory
-        get_dir = QHBoxLayout()
-        label = QLabel("Tags file : ")
-        get_dir.addWidget(label)
-        
-        self.info_files_added = QLabel("No file selected") 
-        get_dir.addWidget(self.info_files_added)
-        
-        dicom_files = QPushButton(text="Browse...",parent=self)
-        dicom_files.clicked.connect(self.open_files)
-
-        get_dir.addWidget(dicom_files)
-        get_dir.setSpacing(20)
-           
-        self.setLayout(get_dir)
-        self.model.listChanged.connect(self.modify_tooltip)
-        
-        get_dir.setContentsMargins(20,0,100,0)
-
-    def open_files(self):
-        file, _ = QFileDialog.getOpenFileName(self, "Select json file", ".", "JSON files (*.json)")
-        file = str.strip(file)
-        if file is None or not file.endswith('.json'):
-            return
-        
-        self.json = QFileInfo(file)
-        self.info_files_added.setText(self.json.fileName())
-        
-        self.model.dicom_tags, self.model.potential_bad_tags = tags.check_tags(self.json)     
-        self.model.listChanged.emit()
-    
-    def modify_tooltip(self):
-        if len(self.model.series_not_added) == 0:
-            self.setToolTip("")
-            return
-        
-        str = "Files to add : "
-        for file in self.model.series_not_added:
-            str += f"\n {file}"
-        self.setToolTip(str)
+        self.series_model.remove_selected_rows(indexes)
 
 
 class CentralWidget(QWidget):
@@ -296,13 +135,12 @@ class CentralWidget(QWidget):
     def init_ui(self):
         self.v_layout = QVBoxLayout()
         
-        self.model = _DicomsModel()
+        print("Create Model")
+        self.model = TreeModel(["Orthanc"])
 
+        print("Create Dicom")
         self.dicom_widget = _DicomWidget(model=self.model, parent=self)
         self.v_layout.addWidget(self.dicom_widget)
-
-        self.tags_widget = _TagsWidget(model=self.model, parent=self)
-        self.v_layout.addWidget(self.tags_widget)
 
         self.update_button = QPushButton("Update Tags")
         self.update_button.clicked.connect(self.update_tags)
@@ -311,15 +149,15 @@ class CentralWidget(QWidget):
         self.setLayout(self.v_layout)
 
     def update_tags(self):
-        if(len(self.model.series) > 0 and len(self.model.dicom_tags) > 0):
-            tags.send_requests(self.model.series, self.model.series_files, self.model.dicom_tags)
+        if(len(self.model.studies) > 0 and len(self.model.dicom_tags) > 0):
+            tags.send_requests(self.model.studies, self.model.series_files, self.model.dicom_tags)
 
 
 class MainWindow(QMainWindow):
 
     def __init__(self):
         super(MainWindow, self).__init__()
-
+        print("MainWindow")
         self.setWindowTitle("Dicomizer")
         
         widget = CentralWidget()

@@ -1,3 +1,6 @@
 test_pydicom.py
 test_orthanc.py
 test_drag_and_drop.py
+test_
+test_json_input.json
+test_wsi.py

@@ -54,6 +54,51 @@ import glob
 
 from . import types
 
+
+TAG_PATIENT = {
+    'PatientName',
+    'PatientID',
+    'PatientBirthDate',
+    'PatientSex',
+    'OtherPatientIDs'
+}
+TAG_STUDY = {
+    'StudyDate',
+    'StudyTime',
+    'StudyID',
+    'StudyDescription',
+    'AccessionNumber',
+    'StudyInstanceUID',
+    'RequestedProcedureDescription',
+    'InstitutionName',
+    'RequestingPhysician',
+    'ReferringPhysicianName',
+}
+TAG_SERIES = {
+    'SeriesDate',
+    'SeriesTime',
+    'Modality',
+    'Manufacturer',
+    'StationName',
+    'SeriesDescription',
+    'BodyPartExamined',
+    'SequenceName',
+    'ProtocolName',
+    'SeriesNumber',
+    'CardiacNumberOfImages',
+    'ImagesInAcquisition',
+    'NumberOfTemporalPositions',
+    'NumberOfSlices',
+    'NumberOfTimeSlices',
+    'SeriesInstanceUID',
+    'ImageOrientationPatient',
+    'SeriesType',
+    'OperatorsName',
+    'PerformedProcedureStepDescription',
+    'AcquisitionDeviceProcessingDescription',
+    'ContrastBolusAgent',
+}
+
 class OrthancRequestError(Exception):
     """Raised when an Orthanc Request didn't pass
 
@@ -62,12 +107,15 @@ class OrthancRequestError(Exception):
         json
     """
     
-    def __init__(self, reason, json, file) -> None:
+    def __init__(self, details, message, json, file) -> None:
         super().__init__()
-        self.reason = reason
+        self.details = details
+        self.message = message
         self.json = json
         self.file = file
-        self.message = f"The Request failed for {self.file} for the following reason : {self.reason}"
+        
+    def __str__(self) -> str:
+        return f"The Request failed for {self.file} for the following reason : {self.message}\n{self.details}"
         
 class OrthancProcessError(OrthancRequestError):
     """Raised when an Orthanc Request didn't pass
@@ -77,10 +125,12 @@ class OrthancProcessError(OrthancRequestError):
         json
     """
     
-    def __init__(self, reason, json, file, series) -> None:
-        super().__init__(reason, json, file)
+    def __init__(self, details, message, json, file, series) -> None:
+        super().__init__(details, message, json, file)
         self.series = series
-        self.message = f"The Request failed for {self.file} of {self.series} for the following reason : {self.reason}"
+    
+    def __str__(self) -> str:
+        return f"The Request failed for {self.file} of {self.series} for the following reason : {self.message}\n{self.details}"
 
 
 FILE_NAME = "Label"
@@ -158,56 +208,11 @@ def check_tag(tag_name : str, val):
         # Error Column name not a valid Name but possibly a private tag
         return False, val
 
-def send_requests(studies : list[QFileInfo], serie_files : dict[str, set[str]], tags : dict):
-    print("send request")
+def send_request(file : QFileInfo, tags : dict, parent : str, instance_number : int = 1) -> dict:
+    if(not file.exists()):
+        raise OrthancRequestError("Bad Request", {'HttpStatus': 400, 'Details': "File doesn't exists"},file.fileName())
     try:
-        for serie in studies:
-            if not serie.fileName() in tags:
-                print(f"{serie.fileName()} is not in the tag list")
-                continue
-            
-            # too keep for file
-            series_list = serie_files[serie.fileName()]
-            tags_list = tags[serie.fileName()]
-            study_request(serie, series_list, tags_list)
-    except OrthancProcessError as e:
-        print(e.reason)
-        print(e.json)
-        
-def study_request(study: QFileInfo, series_files : dict, series_tags: dict):
-    #series_request(serie, series_list, tags_list)
-    pass
-
-def series_request(serie : QFileInfo, files : set[str], file_tags : dict):
-    try:
-        instances = []
-        parent_orthanc = file_tags.get("parent", "")
-        queue : deque[QFileInfo] = deque([x for x in file_tags["files"]])
-        file_and_tags = queue.popleft()
-        file = file_and_tags[0]
-        tags = file_and_tags[1]
-        print("----------------------------------------------")
-        print(f"Request for {serie.absoluteFilePath()}/{file}")
-        json_resp = send_request(QFileInfo(f"{serie.absoluteFilePath()}/{file}"), tags, parent_orthanc)
-        instances.append(json_resp["ID"])
-        parent = json_resp.get("ParentSeries")
-        while len(queue) > 0:
-            file_and_tags = queue.popleft()
-            file = file_and_tags[0]
-            tags = file_and_tags[1]
-            print(f"Request for {serie.absoluteFilePath()}{file}")
-            json_resp = send_request(QFileInfo(f"{serie.absoluteFilePath()}/{file}"), tags, parent)
-            instances.append(json_resp["ID"])
-    except OrthancRequestError as e:
-        # undo series
-        delete_series(parent)
-        raise OrthancProcessError(e.reason, e.json, e.file, serie.fileName())
-    
-            
-
-
-def send_request(file : QFileInfo, tags : dict, parent : str) -> dict:
-    try:
+        tags["InstanceNumber"] = f"{instance_number}"
         ext = file.suffix()
         if ext in types.extension:
             return create_nexus(file, tags, parent)
@@ -216,14 +221,31 @@ def send_request(file : QFileInfo, tags : dict, parent : str) -> dict:
     except requests.exceptions.HTTPError as e:
         print(e.response.reason)
         print(e.response.json())
-        raise OrthancRequestError(e.response.reason, e.response.json(), file.fileName())
+        raise OrthancRequestError(e.response.json()["Details"], e.response.json()["Message"], e.response.json(), file.fileName())
+    
+def get_patient_module(id : str):
+    r = requests.get(f'http://localhost:8042/patients/{id}/module', auth=basic)
+    r.raise_for_status()
+    set_tags = {info['Name']:info["Value"] for tag, info in r.json().items()}
+    return set_tags
+
+def get_study_module(id : str):
+    r = requests.get(f'http://localhost:8042/studies/{id}/module', auth=basic)
+    r.raise_for_status()
+    set_tags = {info['Name']:info["Value"] for tag, info in r.json().items()}
+    return set_tags
+    
+def get_series_module(id : str):
+    r = requests.get(f'http://localhost:8042/series/{id}/module', auth=basic)
+    r.raise_for_status()
+    set_tags = {info['Name']:info["Value"] for tag, info in r.json().items()}
+    return set_tags
 
 def delete_instance(id : str):
     print(f"Delete Instance : {id}")
     r = requests.delete(f'http://localhost:8042/instances/{id}', auth=basic)
 
     r.raise_for_status()
-    print(r.json())
     return r.json()
 
 def delete_series(id : str):
@@ -231,19 +253,27 @@ def delete_series(id : str):
     r = requests.delete(f'http://localhost:8042/series/{id}', auth=basic)
 
     r.raise_for_status()
-    print(r.json())
+    return r.json()
+
+def delete_studies(id : str):
+    print(f"Delete studies : {id}")
+    r = requests.delete(f'http://localhost:8042/studies/{id}', auth=basic)
+
+    r.raise_for_status()
     return r.json()
     
 def create_nexus(file : QFileInfo, tags : dict, parent : str) -> dict:
     # Is file with .nxs and .nxz format
-
-    r = requests.post(f'http://localhost:8042/{types.FileAPI.NEXUS.value}', auth=basic, data=json.dumps({
+    params = {
         'Content' : encode_file(file).decode('utf-8'),
         'Tags' : tags,
-    }))
+    }
+    if parent:
+        params["Parent"] = parent
+
+    r = requests.post(f'http://localhost:8042/{types.FileAPI.NEXUS.value}', auth=basic, data=json.dumps(params))
 
     r.raise_for_status()
-    print(r.json())
     return r.json()
     
 
@@ -256,23 +286,33 @@ def create_dicom(file : QFileInfo, tags : dict, parent : str) -> dict:
             content = []
             list_files = glob.glob(f"{file.absoluteFilePath()}/*")
             for f in list_files:
-                print(f)
                 content.append(to_data_uri(QFileInfo(f)))
-    
     params = {
         'Content' : content,
         'Tags' : tags,
     }
     if parent:
         params["Parent"] = parent
-    r = requests.post(f'http://localhost:8042/{types.FileAPI.DICOM.value}', auth=basic, data=json.dumps(params))
+    if content:
+        r = requests.post(f'http://localhost:8042/{types.FileAPI.DICOM.value}', auth=basic, data=json.dumps(params))
 
-    r.raise_for_status()
-    print(r.json())
-    return r.json()
+        r.raise_for_status()
+        response_json = r.json()
+        if file.isDir():
+            parent_study_json = get_parent_study(response_json["ID"])
+            response_json["ParentSeries"] = response_json["ID"]
+            response_json["ParentStudy"] = parent_study_json["ID"]
+            response_json["ParentPatient"] = parent_study_json["ParentPatient"]
+        return response_json
+    return None
         
+def get_parent_study(id : str):
+    r = requests.get(f'http://localhost:8042/series/{id}/study', auth=basic)
+    r.raise_for_status()
+    return r.json()
+    
 
-def update_tags_dicom(files : list, tags : QFileInfo):
+def update_tags_dicom(files : list[QFileInfo], tags : QFileInfo):
     warnings.filterwarnings("error")
     
     files = {file.baseName():file for file in files}

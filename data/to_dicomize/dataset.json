@@ -1,6 +1,6 @@
 {
-    "Study_1": {
-        "Serie_1": {
+    "Study_24": {
+        "Serie_24": {
             "list_requests": [
                 "_x_00000_y_00000_.jpg",
                 "_x_00000_y_00160_.jpg",
@@ -27,7 +27,6 @@
                 "_x_00000_y_00000_.jpg": {
                     "tags": {
                         "PatientID": "C123456789",
-                        "OtherPatientIDsSequence": "216346",
                         "PatientName": "SOME^PATIENT",
                         "StudyID": "NONE",
                         "SeriesNumber": "1",
@@ -38,6 +37,12 @@
                 },
                 "_x_00000_y_00160_.jpg": {
                     "tags": {
+                        "PatientID": "C87965656",
+                        "PatientName": "SOME^PATIENT",
+                        "StudyID": "2D",
+                        "SeriesNumber": "1",
+                        "ReferringPhysicianName": "SOME^PHYSICIAN",
+                        "AccessionNumber": "123456789",
                         "AcquisitionNumber": "2"
                     }
                 },
@@ -146,8 +151,38 @@
                         "PatientSex": "M",
                         "StudyID": "NONE",
                         "SeriesNumber": "2",
-                        "ReferringPhysicianName": "SOME^PHYSICIAN",
-                        "AccessionNumber": "123456789"
+                        "ReferringPhysicianName": "SOME^PHYSICIAN"
+                    }
+                }
+            }
+        }
+    },
+    "Study_2": {
+        "Serie_1": {
+            "list_requests": [
+                "upper_cam_2_adjusted v3.stl"
+            ],
+            "files": {
+                "upper_cam_2_adjusted v3.stl": {
+                    "tags": {
+                        "PatientID": "C987654321",
+                        "PatientName": "Meteoriet",
+                        "PatientBirthDate": "19700101",
+                        "StudyID": "NONE",
+                        "SeriesNumber": "1",
+                        "ReferringPhysicianName": "SOME^GEOLOGIST"
+                    }
+                }
+            }
+        },
+        "Serie_2": {
+            "list_requests": [
+                "meteoriet.nxz"
+            ],
+            "files": {
+                "meteoriet.nxz": {
+                    "tags": {
+                        "SeriesNumber": "2"
                     }
                 }
             }

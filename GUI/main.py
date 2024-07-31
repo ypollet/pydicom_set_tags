@@ -34,12 +34,12 @@ import sys
 sys.path.append('.')
 
 from PySide6.QtWidgets import (
-    QMainWindow, QHBoxLayout, QVBoxLayout, QWidget, QFileDialog, QLabel, QPushButton, QListView, QAbstractItemView, QTreeView,
+    QMainWindow, QHBoxLayout, QVBoxLayout, QWidget, QFileDialog, QLabel, QPushButton, QAbstractItemView, QTreeView,
     QSizePolicy, QMenu
 )
 
 from PySide6.QtCore import (
-    Qt, QFileInfo, QSize, QAbstractListModel, Signal, QDir
+    QSize, QDir
 )
 
 from PySide6.QtGui import (
@@ -51,8 +51,6 @@ from PySide6.QtGui import (
 )
 
 from scripts import tags
-import glob
-from collections import defaultdict
 from models.treemodel import TreeModel
        
     
@@ -64,20 +62,7 @@ class _FileWidget(QTreeView):
         self.full_layout = QHBoxLayout()
         self.setLayout(self.full_layout)
         self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        self.files_model = model
-    
-    def contextMenuEvent(self, event: QContextMenuEvent) -> None:
-        print(event.globalPos())
-        menu = QMenu()
-        action = QAction("delete rows")
-        menu.addAction(action)
-        selectedAction : QAction = menu.exec(event.globalPos())
-        print(selectedAction)
-        if selectedAction is not None:
-            print(f"Delete rows")
-            self.files_model.remove_selected_rows(self.selectedIndexes())
-        
-        
+        self.files_model = model       
 
 
 class _DicomWidget(QWidget):
@@ -91,18 +76,18 @@ class _DicomWidget(QWidget):
         full_layout = QVBoxLayout()
 
         get_dir = QHBoxLayout()
-        label = QLabel("Dicom Files : ")
-        get_dir.addWidget(label)
+        self.label = QLabel("Directory to Dicomize : ")
+        get_dir.addWidget(self.label)
                 
         
         directories = QPushButton(text="Add directory",parent=self)
         directories.clicked.connect(self.open_directory)
         
-        delete = QPushButton(text="Delete items",parent=self)
-        delete.clicked.connect(self.delete_items)
+        refresh = QPushButton(text="Refresh",parent=self)
+        refresh.clicked.connect(self.refresh)
 
         get_dir.addWidget(directories)
-        get_dir.addWidget(delete)
+        get_dir.addWidget(refresh)
         get_dir.setSpacing(20)
         
         full_layout.addLayout(get_dir)
@@ -119,12 +104,11 @@ class _DicomWidget(QWidget):
         self.setLayout(full_layout)
         
     def open_directory(self):
-        directory = QDir(QFileDialog.getExistingDirectory(self, "Select Directory"))   
+        directory = QDir(QFileDialog.getExistingDirectory(self, "Select Directory"))
         self.series_model.setModel(directory)
             
-    def delete_items(self):
-        indexes = sorted(self.list_files.selectedIndexes(), reverse=True)
-        self.series_model.remove_selected_rows(indexes)
+    def refresh(self):
+        self.series_model.refreshModel()
 
 
 class CentralWidget(QWidget):
@@ -149,8 +133,8 @@ class CentralWidget(QWidget):
         self.setLayout(self.v_layout)
 
     def update_tags(self):
-        if(len(self.model.studies) > 0 and len(self.model.dicom_tags) > 0):
-            tags.send_requests(self.model.studies, self.model.series_files, self.model.dicom_tags)
+        if self.model.directory:
+            self.model.send_requests()
 
 
 class MainWindow(QMainWindow):

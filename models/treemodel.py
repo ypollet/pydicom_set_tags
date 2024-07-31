@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: LicenseRef-Qt-Commercial OR BSD-3-Clause
 
 
-from PySide6.QtCore import QModelIndex, Qt, QAbstractItemModel, QDir
-from models.treeitem import TreeItem, Correspondence
+from PySide6.QtCore import QModelIndex, Qt, QAbstractItemModel, QDir, QFileInfo
+
 from scripts import tags
 import json
 import os
@@ -11,6 +11,12 @@ import os
 from PySide6.QtGui import (
     QIcon,
 )
+
+from models.treeitem import TreeItem, Correspondence
+from GUI.Error_Messages.change_module_value import WrongValue, WrongValueDialog
+from GUI.Error_Messages.not_all_correct import NotAllCorrectDialog
+from GUI.Error_Messages.request_exception import RequestExceptionDialog
+
 
 
 
@@ -24,8 +30,8 @@ class TreeModel(QAbstractItemModel):
         
         print(os.getcwd())
         self.ok = QIcon(f"{os.getcwd()}/images/status.png")
-        self.warning = QIcon(f"{os.getcwd()}/images/status-busy.png"),
-        self.nope = QIcon(f"{os.getcwd()}/images/status-away.png"),
+        self.warning = QIcon(f"{os.getcwd()}/images/status-busy.png")
+        self.nope = QIcon(f"{os.getcwd()}/images/status-away.png")
         
         self.setModel(directory)        
 
@@ -39,18 +45,7 @@ class TreeModel(QAbstractItemModel):
         if role == Qt.ItemDataRole.DisplayRole:
             return item.data(index.column())
         if role == Qt.ItemDataRole.DecorationRole:
-            print(f"{item.data(0)} : {item.is_in_tags}")
-            match item.is_in_tags:
-                case Correspondence.CORRECT:
-                    print("ok")
-                    return self.ok
-                case Correspondence.NOT_CORRECT:
-                    print("warning")
-                    return self.warning
-                case Correspondence.NOT_PRESENT:
-                    print("nope")
-                    return self.nope
-        
+            return item.is_in_tags.value
         return None
     
 
@@ -147,6 +142,11 @@ class TreeModel(QAbstractItemModel):
 
         return success
 
+    def removeSelectedRows(self, rows : list[QModelIndex] = None):
+        if not rows or len(rows) == 0:
+            return
+        print(rows)
+            
     def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
         if parent.isValid() and parent.column() > 0:
             return 0
@@ -155,36 +155,17 @@ class TreeModel(QAbstractItemModel):
         if not parent_item:
             return 0
         return parent_item.child_count()
-
-    def setData(self, index: QModelIndex, value, role: int) -> bool:
-        if role != Qt.ItemDataRole.EditRole:
-            return False
-
-        item: TreeItem = self.get_item(index)
-        result: bool = item.set_data(index.column(), value)
-
-        if result:
-            self.dataChanged.emit(index, index, [Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.EditRole])
-
-        return result
-
-    def setHeaderData(self, section: int, orientation: Qt.Orientation, value,
-                      role: int = None) -> bool:
-        if role != Qt.ItemDataRole.EditRole or orientation != Qt.Orientation.Horizontal:
-            return False
-
-        result: bool = self.root_item.set_data(section, value)
-
-        if result:
-            self.headerDataChanged.emit(orientation, section, section)
-
-        return result
     
+    def refreshModel(self):
+        self.setModel(self.directory)
+
     def setModel(self, directory : QDir | None):
+        # Reset model
+        self.root_item = TreeItem(self.root_data.copy())
         
         self.directory = directory
         if not directory:
-            # directory is None
+            # directory is None so don't update non-existent data
             return
         json_dir = QDir(directory)
         json_dir.setFilter(QDir.Filter.Files)
@@ -210,7 +191,6 @@ class TreeModel(QAbstractItemModel):
 
     def setupModelData(self, studies: dict[str, dict[str, set[str]]], tags_dict : dict, root: TreeItem):
         for study in studies.keys() :
-            print(f"{study}")
             root.insert_children(root.child_count(),1, self.root_item.column_count())
             study_item = root.last_child()
             study_item.set_data(0, study)
@@ -218,33 +198,109 @@ class TreeModel(QAbstractItemModel):
             study_all_correct = study_present
             for series in studies[study].keys():
                 study_item.insert_children(study_item.child_count(),1, self.root_item.column_count())
-                print(f"--{series}")
                 series_item = study_item.last_child()
                 series_item.set_data(0, series)
                 series_present = False if not study_present else series in tags_dict[study]
                 series_all_correct = series_present
                 for file in studies[study][series]:
-                    print(f"----{file}")
                     series_item.insert_children(series_item.child_count(),1, self.root_item.column_count())
                     file_item = series_item.last_child()
                     file_item.set_data(0, file)
                     file_item.set_in_tags(Correspondence.CORRECT if series_present and file in tags_dict[study][series]["files"] else Correspondence.NOT_PRESENT)
-                    print(f"----{file_item.is_in_tags}")
                     if file_item.is_correct():
-                        file_item.set_tags(tags_dict[study][series]["files"][file])
+                        file_item.set_tags(tags_dict[study][series]["files"][file]["tags"])
                     else:
                         series_all_correct = False
                 
                 series_item.set_in_tags(Correspondence.CORRECT if series_all_correct else Correspondence.NOT_CORRECT if series_present else Correspondence.NOT_PRESENT)
-                print(f"--{series_item.is_in_tags}")
                 if not series_item.is_correct():
                     study_all_correct = False
             
             study_item.set_in_tags(Correspondence.CORRECT if study_all_correct else Correspondence.NOT_CORRECT if study_present else Correspondence.NOT_PRESENT)
-            print(f"{study_item.is_in_tags}")
         self.layoutChanged.emit()
+    
+    def send_requests(self):
+        failed_studies = [study.data(0) for study in self.root_item.child_items if not study.is_correct()]
+        if(len(failed_studies) > 0):
+            msg_box = NotAllCorrectDialog(failed_studies)
+            ret = msg_box.exec()
+            if not ret:
+                return
         
-
+        set_studies = set()
+        for study_item in self.root_item.child_items:
+            try:
+                parent = ""
+                parent_study = ""
+                
+                patient_module = dict()
+                study_module = dict()
+                if not study_item.is_correct():
+                    
+                    continue
+                for series_item in study_item.child_items:
+                    series_module = dict()
+                    print(f"Update Series {study_item.data(0)}/{series_item.data(0)}")
+                    instance_number = 0
+                    for file_item in series_item.child_items:
+                        
+                        wrong_value_tag = [WrongValue(tag, val_module, file_item.tags_dict[tag]) for tag, val_module in patient_module.items() if (tag in file_item.tags_dict and val_module != file_item.tags_dict[tag])]
+                        wrong_value_tag.extend([WrongValue(tag, val_module, file_item.tags_dict[tag]) for tag, val_module in study_module.items() if (tag in file_item.tags_dict and val_module != file_item.tags_dict[tag])])
+                        wrong_value_tag.extend([WrongValue(tag, val_module, file_item.tags_dict[tag]) for tag, val_module in series_module.items() if (tag in file_item.tags_dict and val_module != file_item.tags_dict[tag])])
+                        print(f"------------ File : {file_item.data(0)} : {wrong_value_tag}")
+                        if len(wrong_value_tag) > 0 :
+                            msg_box = WrongValueDialog(wrong_value_tag)
+                            ret = msg_box.exec()
+                            if not ret:
+                                self.delete_all_studies(set_studies)
+                                self.reinit()
+                                return
+                        
+                        
+                        tags_dict = {tag:val for tag, val in file_item.tags_dict.items() if tag not in patient_module and tag not in study_module and tag not in series_module}
+                        
+                        response = tags.send_request(QFileInfo(f"{self.directory.absoluteFilePath(study_item.data(0))}/{series_item.data(0)}/{file_item.data(0)}"), tags_dict, parent, instance_number)
+                        print(response)
+                        parent = response["ParentSeries"]
+                        parent_study = response["ParentStudy"]
+                        set_studies.add(parent_study)
+                        
+                        patient_module.update({tag:val for tag, val in tags_dict.items() if tag in tags.TAG_PATIENT})
+                        study_module.update({tag:val for tag, val in tags_dict.items() if tag in tags.TAG_STUDY})
+                        series_module.update({tag:val for tag, val in tags_dict.items() if tag in tags.TAG_SERIES})
+                        
+                        instance_number += 1
+                    parent = parent_study
+                
+                
+            except Exception as e:
+                # TODO error handling if error !
+                msg_box = RequestExceptionDialog(e)
+                ret = msg_box.exec()
+                if not ret:
+                    self.delete_all_studies(set_studies)
+                    self.reinit()
+                    return
+                else:
+                    # only delete the study
+                    if parent_study:
+                        tags.delete_studies(parent_study)
+                
+        
+        self.reinit()
+        
+            
+    
+    def reinit(self):
+        # REINIT MODEL
+        self.directory = None
+        self.root_item = TreeItem(self.root_data.copy())
+        self.layoutChanged.emit()
+    
+    def delete_all_studies(self, list_studies : list[str]):
+        for study in list_studies:
+            tags.delete_studies(study)
+                
     def _repr_recursion(self, item: TreeItem, indent: int = 0) -> str:
         result = " " * indent + repr(item) + "\n"
         for child in item.child_items:

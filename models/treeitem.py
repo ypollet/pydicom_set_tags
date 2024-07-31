@@ -10,18 +10,18 @@ from PySide6.QtGui import (
 )
 class Correspondence(Enum):
     CORRECT = QIcon("images/status.png")
-    NOT_PRESENT = QIcon("images/status-busy.png"),
-    NOT_CORRECT = QIcon("images/status-away.png"),
+    NOT_PRESENT = QIcon("images/status-busy.png")
+    NOT_CORRECT = QIcon("images/status-away.png")
     
 
 class TreeItem:
-    def __init__(self, data: list, parent: 'TreeItem' = None, in_tags : Correspondence = Correspondence.NOT_CORRECT, tags_dict = {}, potential_bad_tags = []):
+    def __init__(self, data: list, parent: 'TreeItem' = None, in_tags : Correspondence = Correspondence.NOT_CORRECT, tags_dict = None, potential_bad_tags = None):
         self.item_data = data
         self.is_in_tags = in_tags
         self.parent_item : 'TreeItem' = parent
         self.child_items : list['TreeItem'] = []
-        self.tags_dict : dict = tags_dict
-        self.potential_bad_tags : list = potential_bad_tags
+        self.tags_dict : dict = tags_dict or dict()
+        self.potential_bad_tags : list = potential_bad_tags or []
 
     def child(self, number: int) -> 'TreeItem':
         if number < 0 or number >= len(self.child_items):

@@ -120,7 +120,7 @@ class CentralWidget(QWidget):
         self.v_layout = QVBoxLayout()
         
         print("Create Model")
-        self.model = TreeModel(["Orthanc"])
+        self.model = TreeModel(["Orthanc", "UUID"])
 
         print("Create Dicom")
         self.dicom_widget = _DicomWidget(model=self.model, parent=self)

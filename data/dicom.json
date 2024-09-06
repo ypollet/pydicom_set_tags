@@ -1,0 +1,12 @@
+{
+    "PatientID": "EADIPT123456452",
+    "PatientName": "Philodicus^sp_test",
+    "StudyID": "Sphaeroptica_Philo_Sphaeroptica",
+    "SeriesNumber": "1",
+    "ReferringPhysicianName": "Yann^Pollet",
+    "PrivateCreatorForSphaeroptica": "Sphaeroptica",
+    "FX": "3.12",
+    "ImageType": "ORIGINAL\\PRIMARY",
+    "TimeOfLastCalibration": "234421.000000\\185050.000000",
+    "TimeRange": [3.12, 5.12]
+}

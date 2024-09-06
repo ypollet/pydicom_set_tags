@@ -1,28 +1,6 @@
 {
     "Study_24": {
         "Serie_24": {
-            "list_requests": [
-                "_x_00000_y_00000_.jpg",
-                "_x_00000_y_00160_.jpg",
-                "_x_00000_y_00320_.jpg",
-                "_x_00000_y_00480_.jpg",
-                "_x_00000_y_00640_.jpg",
-                "_x_00000_y_00800_.jpg",
-                "_x_00000_y_00960_.jpg",
-                "_x_00000_y_01120_.jpg",
-                "_x_00000_y_01280_.jpg",
-                "_x_00000_y_01440_.jpg",
-                "_x_00000_y_01600_.jpg",
-                "_x_00000_y_01760_.jpg",
-                "_x_00000_y_01920_.jpg",
-                "_x_00000_y_02080_.jpg",
-                "_x_00000_y_02240_.jpg",
-                "_x_00000_y_02400_.jpg",
-                "_x_00000_y_02560_.jpg",
-                "_x_00000_y_02720_.jpg",
-                "_x_00000_y_02880_.jpg",
-                "_x_00000_y_03040_.jpg"
-            ],
             "files": {
                 "_x_00000_y_00000_.jpg": {
                     "tags": {
@@ -139,9 +117,6 @@
             }
         },
         "Serie_2": {
-            "list_requests": [
-                "images"
-            ],
             "files": {
                 "images": {
                     "tags": {
@@ -159,9 +134,6 @@
     },
     "Study_2": {
         "Serie_1": {
-            "list_requests": [
-                "upper_cam_2_adjusted v3.stl"
-            ],
             "files": {
                 "upper_cam_2_adjusted v3.stl": {
                     "tags": {
@@ -176,9 +148,6 @@
             }
         },
         "Serie_2": {
-            "list_requests": [
-                "meteoriet.nxz"
-            ],
             "files": {
                 "meteoriet.nxz": {
                     "tags": {

@@ -12,7 +12,7 @@ from PySide6.QtGui import (
     QIcon,
 )
 
-from models.treeitem import TreeItem, Correspondence
+from models.treeitem import TreeItem, Correspondence, RequestType
 from GUI.Error_Messages.change_module_value import WrongValue, WrongValueDialog
 from GUI.Error_Messages.not_all_correct import NotAllCorrectDialog
 from GUI.Error_Messages.request_exception import RequestExceptionDialog
@@ -44,7 +44,7 @@ class TreeModel(QAbstractItemModel):
         item: TreeItem = self.get_item(index)
         if role == Qt.ItemDataRole.DisplayRole:
             return item.data(index.column())
-        if role == Qt.ItemDataRole.DecorationRole:
+        if role == Qt.ItemDataRole.DecorationRole and index.column() == 0:
             return item.is_in_tags.value
         return None
     
@@ -145,7 +145,6 @@ class TreeModel(QAbstractItemModel):
     def removeSelectedRows(self, rows : list[QModelIndex] = None):
         if not rows or len(rows) == 0:
             return
-        print(rows)
             
     def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
         if parent.isValid() and parent.column() > 0:
@@ -161,7 +160,7 @@ class TreeModel(QAbstractItemModel):
 
     def setModel(self, directory : QDir | None):
         # Reset model
-        self.root_item = TreeItem(self.root_data.copy())
+        self.reinit()
         
         self.directory = directory
         if not directory:
@@ -174,7 +173,7 @@ class TreeModel(QAbstractItemModel):
         list_json = json_dir.entryInfoList()
         
         if len(list_json) != 1:
-            # send error
+            # TODO: send error
             return
         
         self.directory = directory
@@ -201,6 +200,10 @@ class TreeModel(QAbstractItemModel):
                 series_item = study_item.last_child()
                 series_item.set_data(0, series)
                 series_present = False if not study_present else series in tags_dict[study]
+                if series_present:
+                    type_request = RequestType[tags_dict[study][series]["type"]] if "type" in tags_dict[study][series] else RequestType.DEFAULT
+                    options = tags_dict[study][series]["options"] if "options" in tags_dict[study][series] else {}
+                    series_item.set_request_type(type_request, options)
                 series_all_correct = series_present
                 for file in studies[study][series]:
                     series_item.insert_children(series_item.child_count(),1, self.root_item.column_count())
@@ -263,13 +266,18 @@ class TreeModel(QAbstractItemModel):
                         print(response)
                         parent = response["ParentSeries"]
                         parent_study = response["ParentStudy"]
+                        instance_id = response["ID"]
                         set_studies.add(parent_study)
+                        file_item.set_data(1, instance_id)
+                        series_item.set_data(1, parent)
+                        study_item.set_data(1, parent_study)
                         
                         patient_module.update({tag:val for tag, val in tags_dict.items() if tag in tags.TAG_PATIENT})
                         study_module.update({tag:val for tag, val in tags_dict.items() if tag in tags.TAG_STUDY})
                         series_module.update({tag:val for tag, val in tags_dict.items() if tag in tags.TAG_SERIES})
                         
                         instance_number += 1
+                        self.layoutChanged.emit()
                     parent = parent_study
                 
                 
@@ -287,7 +295,7 @@ class TreeModel(QAbstractItemModel):
                         tags.delete_studies(parent_study)
                 
         
-        self.reinit()
+        #self.reinit()
         
             
     

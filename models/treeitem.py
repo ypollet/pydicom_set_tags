@@ -13,15 +13,21 @@ class Correspondence(Enum):
     NOT_PRESENT = QIcon("images/status-busy.png")
     NOT_CORRECT = QIcon("images/status-away.png")
     
-
+class RequestType(Enum):
+    DEFAULT = 1
+    SPHAEROPTICA = 2
+    WSI = 3
+    
 class TreeItem:
-    def __init__(self, data: list, parent: 'TreeItem' = None, in_tags : Correspondence = Correspondence.NOT_CORRECT, tags_dict = None, potential_bad_tags = None):
+    def __init__(self, data: list, parent: 'TreeItem' = None, in_tags : Correspondence = Correspondence.NOT_CORRECT, tags_dict = None, potential_bad_tags = None, type : RequestType = RequestType.DEFAULT, options : dict = {}):
         self.item_data = data
         self.is_in_tags = in_tags
         self.parent_item : 'TreeItem' = parent
         self.child_items : list['TreeItem'] = []
         self.tags_dict : dict = tags_dict or dict()
         self.potential_bad_tags : list = potential_bad_tags or []
+        self.type : RequestType = type
+        self.options : dict = options
 
     def child(self, number: int) -> 'TreeItem':
         if number < 0 or number >= len(self.child_items):
@@ -56,13 +62,17 @@ class TreeItem:
             casted_tags[tag_name] = tag_val
         self.tags_dict = casted_tags
 
+    def set_request_type(self, type : RequestType, options : dict = {}):
+        self.type = type
+        self.options = options
+        
     def insert_children(self, position: int, count: int, columns: int) -> bool:
         if position < 0 or position > len(self.child_items):
             return False
 
         for row in range(count):
             data = [None] * columns
-            item = TreeItem(data.copy(), self)
+            item = TreeItem(data.copy(), self, type=self.type, options=self.options)
             self.child_items.insert(position, item)
         return True
 

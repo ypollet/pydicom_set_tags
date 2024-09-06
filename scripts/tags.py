@@ -155,6 +155,7 @@ def check_cast(vr, val):
     if vr == VR.AT:
         # if it's an Attribute
         return Tag(val)
+    
     if vr in STR_VR:
         return str(val)
     
@@ -284,12 +285,13 @@ def create_dicom(file : QFileInfo, tags : dict, parent : str) -> dict:
     else:
         if file.isDir():
             content = []
-            list_files = glob.glob(f"{file.absoluteFilePath()}/*")
+            list_files = sorted(glob.glob(f"{file.absoluteFilePath()}/*"))
             for f in list_files:
                 content.append(to_data_uri(QFileInfo(f)))
     params = {
         'Content' : content,
         'Tags' : tags,
+        "PrivateCreator": "Sphaeroptica",
     }
     if parent:
         params["Parent"] = parent

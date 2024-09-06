@@ -33,6 +33,7 @@ class TreeModel(QAbstractItemModel):
         self.warning = QIcon(f"{os.getcwd()}/images/status-busy.png")
         self.nope = QIcon(f"{os.getcwd()}/images/status-away.png")
         
+        self.finished = False
         self.setModel(directory)        
 
     def columnCount(self, parent: QModelIndex = None) -> int:

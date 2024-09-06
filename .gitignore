@@ -4,3 +4,7 @@ test_drag_and_drop.py
 test_
 test_json_input.json
 test_wsi.py
+test.dcm
+data/test_2.dcm
+data/test_3.dcm
+data/test.dcm
